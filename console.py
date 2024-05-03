@@ -60,7 +60,7 @@ def sync_directory_node(session: OAuth1Session, base_directory: str, uri: str):
         "url_name": url_name,
         "url_path": url_path,
         "date_added": date_added,
-        "highlight_image_uri":highlight_image_uri
+        "highlight_image_uri": highlight_image_uri
     }
     with open(f"{directory_path}/folder.json", 'w') as fh:
         json.dump(folder_config, fh, indent=2)
