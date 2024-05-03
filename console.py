@@ -38,6 +38,7 @@ def sync_directory_node(session: OAuth1Session, base_directory: str, uri: str):
     node_type = response['Response']['Node']['Type']
     url_name = response['Response']['Node']['UrlName']
     url_path = response['Response']['Node']['UrlPath']
+    is_root = response['Response']['Node']['IsRoot']
     date_added = response['Response']['Node']['DateAdded']
     highlight_image_uri = response['Response']['Node']['Uris']['HighlightImage']['Uri']
     node_comments_uri = response['Response']['Node']['Uris']['NodeComments']['Uri']
@@ -48,7 +49,7 @@ def sync_directory_node(session: OAuth1Session, base_directory: str, uri: str):
         return
 
     local_dirname = node_id if len(url_name) == 0 else url_name
-    directory_path = base_directory + '/' + local_dirname
+    directory_path = base_directory + '/' + local_dirname if not is_root else base_directory
     os.makedirs(directory_path, exist_ok=True)
 
     folder_config = {
