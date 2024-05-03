@@ -241,17 +241,19 @@ def fetch_image(session: OAuth1Session,
                 size_label: str) -> str:
     image_filename = f"{base_directory}/{image_key}-{size}.{extension}"
     if not os.path.isfile(image_filename):
-        data = session.get(url, stream=True)
-        if 200 != data.status_code:
-            raise Exception(f"Error fetching {size_label} image for {image_key} @ {url}")
+        while True:
+            data = session.get(url, stream=True)
+            if 200 != data.status_code:
+                print(f"Error fetching {size_label} image for {image_key} @ {url}")
+            else:
+                data.raw.decode_content = True
+                with open(image_filename + '.tmp', 'wb') as fh:
+                    shutil.copyfileobj(data.raw, fh)
+                del data
+                os.rename(image_filename + '.tmp', image_filename)
 
-        data.raw.decode_content = True
-        with open(image_filename + '.tmp', 'wb') as fh:
-            shutil.copyfileobj(data.raw, fh)
-        del data
-        os.rename(image_filename + '.tmp', image_filename)
-
-        print(f'Downloading {size_label} => {image_filename.lstrip(OUTPUT_DIR)}')
+                print(f'Downloading {size_label} => {image_filename.lstrip(OUTPUT_DIR)}')
+                break
     return image_filename
 
 
