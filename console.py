@@ -173,13 +173,15 @@ def sync_album_image(session: OAuth1Session, base_directory: str, image_data: di
             'altitude': image_data['Altitude'],
             'hidden': image_data['Hidden'],
             'filename': image_data['FileName'],
-            'date_time_original': image_data['DateTimeOriginal'],
             'date_time_uploaded': image_data['DateTimeUploaded'],
             'original_height': image_data['OriginalHeight'],
             'original_width': image_data['OriginalWidth'],
             'original_size': image_data['OriginalSize'],
             'images': [],
         }
+
+        if 'DateTimeOriginal' in image_data:
+            config['date_time_original'] = image_data['DateTimeOriginal'],
 
         thumbnail_url = image_data['ThumbnailUrl']
         extension = image_data['Format'].lower()
