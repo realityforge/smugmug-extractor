@@ -47,6 +47,7 @@ def sync_folder_node(session: OAuth1Session, base_directory: str, uri: str) -> s
     date_added = response['Response']['Node']['DateAdded']
     highlight_image_uri = response['Response']['Node']['Uris']['HighlightImage']['Uri']
     node_comments_uri = response['Response']['Node']['Uris']['NodeComments']['Uri']
+    child_nodes_uri = response['Response']['Node']['Uris']['ChildNodes']['Uri']
 
     local_dirname = node_id if len(url_name) == 0 else url_name
     directory_path = base_directory + '/' + local_dirname if not is_root else base_directory
@@ -65,7 +66,6 @@ def sync_folder_node(session: OAuth1Session, base_directory: str, uri: str) -> s
         "child_nodes": []
     }
 
-    child_nodes_uri = response['Response']['Node']['Uris']['ChildNodes']['Uri']
     child_nodes_response = request(session, child_nodes_uri)
     output_request('child_nodes', child_nodes_response)
     child_nodes = child_nodes_response['Response']['Node']
