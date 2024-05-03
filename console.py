@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-import typing
 
 from rauth import OAuth1Session
-import sys
-
 from common import API_ORIGIN, get_service, add_auth_params
+import sys
 import json
 import os
+import shutil
 
 OUTPUT_DIR = os.path.dirname(__file__) + '/Output/'
 
