@@ -22,167 +22,235 @@ def output_request(filename: str, response_json: dict) -> None:
 
 
 def request(session: OAuth1Session, relative_uri: str) -> dict:
-    data = session.get(API_ORIGIN + relative_uri, headers={'Accept': 'application/json'}).text
-    return json.loads(data)
+    response = session.get(API_ORIGIN + relative_uri, headers={'Accept': 'application/json'})
+    if 200 != response.status_code:
+        raise Exception(f"Error fetching {API_ORIGIN + relative_uri}")
+    return json.loads(response.text)
 
 
-def sync_folder_node(session: OAuth1Session, base_directory: str, uri: str) -> str:
-    print(f'sync_folder_node({uri}, {base_directory.lstrip(OUTPUT_DIR)})')
-    response = request(session, uri)
-    output_request('folder_node', response)
+def sync_folder_node(session: OAuth1Session, directory_path: str, uri: str) -> None:
+    folder_config_path = f"{directory_path}/folder.json"
+    if os.path.isfile(folder_config_path):
+        print(f"sync_folder_node({directory_path.lstrip(OUTPUT_DIR)}) skipped as already synchronized")
+        pass
+    else:
+        print(f'sync_folder_node({uri}, {directory_path.lstrip(OUTPUT_DIR)})')
+        response = request(session, uri)
+        output_request('folder_node', response)
 
-    node_type = response['Response']['Node']['Type']
-    if 'Folder' != node_type:
-        raise Exception(f"Not handling node type of {node_type} for {response['Response']['Node']['UrlPath']}")
+        node_type = response['Response']['Node']['Type']
+        if 'Folder' != node_type:
+            raise Exception(f"Not handling node type of {node_type} for {response['Response']['Node']['UrlPath']}")
 
-    node_id = response['Response']['Node']['NodeID']
-    name = response['Response']['Node']['Name']
-    description = response['Response']['Node']['Description']
-    privacy = response['Response']['Node']['Privacy']
-    keywords = response['Response']['Node']['Keywords']
-    url_name = response['Response']['Node']['UrlName']
-    url_path = response['Response']['Node']['UrlPath']
-    is_root = response['Response']['Node']['IsRoot']
-    date_added = response['Response']['Node']['DateAdded']
-    highlight_image_uri = response['Response']['Node']['Uris']['HighlightImage']['Uri']
-    node_comments_uri = response['Response']['Node']['Uris']['NodeComments']['Uri']
-    child_nodes_uri = response['Response']['Node']['Uris']['ChildNodes']['Uri']
+        node_id = response['Response']['Node']['NodeID']
+        name = response['Response']['Node']['Name']
+        description = response['Response']['Node']['Description']
+        privacy = response['Response']['Node']['Privacy']
+        keywords = response['Response']['Node']['Keywords']
+        url_name = response['Response']['Node']['UrlName']
+        url_path = response['Response']['Node']['UrlPath']
+        date_added = response['Response']['Node']['DateAdded']
+        highlight_image_uri = response['Response']['Node']['Uris']['HighlightImage']['Uri']
+        node_comments_uri = response['Response']['Node']['Uris']['NodeComments']['Uri']
+        child_nodes_uri = response['Response']['Node']['Uris']['ChildNodes']['Uri']
 
-    local_dirname = node_id if len(url_name) == 0 else url_name
-    directory_path = base_directory + '/' + local_dirname if not is_root else base_directory
-    os.makedirs(directory_path, exist_ok=True)
+        os.makedirs(directory_path, exist_ok=True)
 
-    config = {
-        "node_id": node_id,
-        "name": name,
-        "description": description,
-        "privacy": privacy,
-        "keywords": keywords,
-        "url_name": url_name,
-        "url_path": url_path,
-        "date_added": date_added,
-        "highlight_image_uri": highlight_image_uri,
-        "child_nodes": []
-    }
+        config = {
+            "node_id": node_id,
+            "name": name,
+            "description": description,
+            "privacy": privacy,
+            "keywords": keywords,
+            "url_name": url_name,
+            "url_path": url_path,
+            "date_added": date_added,
+            "highlight_image_uri": highlight_image_uri,
+            "child_nodes": []
+        }
 
-    child_nodes_response = request(session, child_nodes_uri)
-    output_request('child_nodes', child_nodes_response)
-    child_nodes = child_nodes_response['Response']['Node']
-    for child_node in child_nodes:
-        child_node_uri = child_node['Uri']
-        child_node_node_type = child_node['Type']
-        if 'Folder' == child_node_node_type:
-            child_key = sync_folder_node(session, directory_path, child_node_uri)
-            config['child_nodes'].append(child_key)
-        elif 'Album' == child_node_node_type:
-            child_key = sync_album_node(session, directory_path, child_node_uri)
-            config['child_nodes'].append(child_key)
-        else:
-            print(f"Unexpected node type '{child_node_node_type}' for child {child_node_uri} in sync_folder_node()")
-            exit(44)
+        child_nodes_response = request(session, child_nodes_uri)
+        output_request('child_nodes', child_nodes_response)
+        child_nodes = child_nodes_response['Response']['Node']
+        for child_node in child_nodes:
+            child_node_uri = child_node['Uri']
+            child_node_node_type = child_node['Type']
+            node_id = child_node['NodeID']
+            url_name = child_node['UrlName']
+            is_root = child_node['IsRoot']
+            local_dirname = node_id if len(url_name) == 0 else url_name
+            child_directory_path = directory_path + '/' + local_dirname if not is_root else base_directory
 
-    with open(f"{directory_path}/folder.json", 'w') as fh:
-        json.dump(config, fh, indent=2)
+            if 'Folder' == child_node_node_type:
+                sync_folder_node(session, child_directory_path, child_node_uri)
+                config['child_nodes'].append(local_dirname)
+            elif 'Album' == child_node_node_type:
+                sync_album_node(session, child_directory_path, child_node_uri)
+                config['child_nodes'].append(local_dirname)
+            else:
+                print(f"Unexpected node type '{child_node_node_type}' for child {child_node_uri} in sync_folder_node()")
+                exit(44)
 
-    return local_dirname
+        with open(folder_config_path, 'w') as fh:
+            json.dump(config, fh, indent=2)
 
 
-def sync_album_node(session: OAuth1Session, base_directory: str, uri: str) -> str:
-    print(f'sync_album_node({uri}, {base_directory.lstrip(OUTPUT_DIR)})')
-    response = request(session, uri)
-    output_request('album_node', response)
+def sync_album_node(session: OAuth1Session, directory_path: str, uri: str) -> None:
+    album_config_filename = f"{directory_path}/album.json"
+    if os.path.isfile(album_config_filename):
+        print(f"sync_album_node({uri}) skipped as already synchronized")
+        pass
+    else:
+        print(f'sync_album_node({uri}, {directory_path.lstrip(OUTPUT_DIR)})')
+        response = request(session, uri)
+        output_request('album_node', response)
 
-    node_type = response['Response']['Node']['Type']
-    if 'Album' != node_type:
-        raise Exception(f"Not handling node type of {node_type} for {response['Response']['Node']['UrlPath']}")
+        node_type = response['Response']['Node']['Type']
+        if 'Album' != node_type:
+            raise Exception(f"Not handling node type of {node_type} for {response['Response']['Node']['UrlPath']}")
 
-    node_id = response['Response']['Node']['NodeID']
-    name = response['Response']['Node']['Name']
-    description = response['Response']['Node']['Description']
-    privacy = response['Response']['Node']['Privacy']
-    keywords = response['Response']['Node']['Keywords']
-    url_name = response['Response']['Node']['UrlName']
-    url_path = response['Response']['Node']['UrlPath']
-    is_root = response['Response']['Node']['IsRoot']
-    date_added = response['Response']['Node']['DateAdded']
-    highlight_image_uri = response['Response']['Node']['Uris']['HighlightImage']['Uri']
-    node_comments_uri = response['Response']['Node']['Uris']['NodeComments']['Uri']
-    album_uri = response['Response']['Node']['Uris']['Album']['Uri']
+        node_id = response['Response']['Node']['NodeID']
+        name = response['Response']['Node']['Name']
+        description = response['Response']['Node']['Description']
+        privacy = response['Response']['Node']['Privacy']
+        keywords = response['Response']['Node']['Keywords']
+        url_name = response['Response']['Node']['UrlName']
+        url_path = response['Response']['Node']['UrlPath']
+        date_added = response['Response']['Node']['DateAdded']
+        highlight_image_uri = response['Response']['Node']['Uris']['HighlightImage']['Uri']
+        node_comments_uri = response['Response']['Node']['Uris']['NodeComments']['Uri']
+        album_uri = response['Response']['Node']['Uris']['Album']['Uri']
 
-    local_dirname = node_id if len(url_name) == 0 else url_name
-    directory_path = base_directory + '/' + local_dirname if not is_root else base_directory
-    os.makedirs(directory_path, exist_ok=True)
+        os.makedirs(directory_path, exist_ok=True)
 
-    config = {
-        "node_id": node_id,
-        "name": name,
-        "description": description,
-        "privacy": privacy,
-        "keywords": keywords,
-        "url_name": url_name,
-        "url_path": url_path,
-        "date_added": date_added,
-        "highlight_image_uri": highlight_image_uri,
-        "images": []
-    }
+        config = {
+            "node_id": node_id,
+            "name": name,
+            "description": description,
+            "privacy": privacy,
+            "keywords": keywords,
+            "url_name": url_name,
+            "url_path": url_path,
+            "date_added": date_added,
+            "highlight_image_uri": highlight_image_uri,
+            "images": []
+        }
 
-    album_response = request(session, album_uri)
-    output_request('album', album_response)
+        album_response = request(session, album_uri)
+        output_request('album', album_response)
 
-    album_images_uri = album_response['Response']['Album']['Uris']['AlbumImages']['Uri']
-    album_images_response = request(session, album_images_uri)
-    output_request('album_images', album_images_response)
+        album_images_uri = album_response['Response']['Album']['Uris']['AlbumImages']['Uri']
+        album_images_response = request(session, album_images_uri)
+        output_request('album_images', album_images_response)
 
-    album_images = album_images_response['Response']['AlbumImage']
-    for album_image in album_images:
-        config['images'].append(album_image['ImageKey'])
+        album_images = album_images_response['Response']['AlbumImage']
+        for album_image in album_images:
+            config['images'].append(album_image['ImageKey'])
 
-    with open(f"{directory_path}/album.json", 'w') as fh:
-        json.dump(config, fh, indent=2)
+        for album_image in album_images:
+            sync_album_image(session, directory_path, album_image)
 
-    for album_image in album_images:
-        sync_album_image(session, directory_path, album_image)
-
-    exit(55)
-    return local_dirname
+        with open(album_config_filename, 'w') as fh:
+            json.dump(config, fh, indent=2)
 
 
 def sync_album_image(session: OAuth1Session, base_directory: str, image_data: dict) -> None:
     image_key = image_data['ImageKey']
-    print(f'sync_album_image({image_key})')
+    image_config_filename = f"{base_directory}/{image_key}.json"
+    if os.path.isfile(image_config_filename):
+        print(f"sync_album_image({image_key}) skipped as already synchronized")
+        pass
+    else:
+        print(f'sync_album_image({image_key})')
 
-    config = {
-        'image_key': image_data['ImageKey'],
-        'title': image_data['Title'],
-        'caption': image_data['Caption'],
-        'keywords': image_data['KeywordArray'],
-        'latitude': image_data['Latitude'],
-        'longitude': image_data['Longitude'],
-        'altitude': image_data['Altitude'],
-        'hidden': image_data['Hidden'],
-        'filename': image_data['FileName'],
-        'date_time_original': image_data['DateTimeOriginal'],
-        'date_time_uploaded': image_data['DateTimeUploaded'],
-        'original_height': image_data['OriginalHeight'],
-        'original_width': image_data['OriginalWidth'],
-        'original_size': image_data['OriginalSize'],
-    }
+        config = {
+            'image_key': image_data['ImageKey'],
+            'title': image_data['Title'],
+            'caption': image_data['Caption'],
+            'keywords': image_data['KeywordArray'],
+            'latitude': image_data['Latitude'],
+            'longitude': image_data['Longitude'],
+            'altitude': image_data['Altitude'],
+            'hidden': image_data['Hidden'],
+            'filename': image_data['FileName'],
+            'date_time_original': image_data['DateTimeOriginal'],
+            'date_time_uploaded': image_data['DateTimeUploaded'],
+            'original_height': image_data['OriginalHeight'],
+            'original_width': image_data['OriginalWidth'],
+            'original_size': image_data['OriginalSize'],
+            'images': [],
+        }
 
-    thumbnail_url = image_data['ThumbnailUrl']
+        thumbnail_url = image_data['ThumbnailUrl']
+        extension = image_data['Format'].lower()
+        fetch_image(session, base_directory, image_key, extension, thumbnail_url, 'Th', 'Thumbnail')
 
-    data = session.get(thumbnail_url, stream=True)
-    if 200 != data.status_code:
-        raise Exception(f"Not handling image thumbnail for {image_key}")
+        image_sizes_uri = image_data['Uris']['ImageSizes']['Uri']
+        image_sizes_response = request(session, image_sizes_uri)
+        output_request('image_sizes', image_sizes_response)
+        images_sizes_data = image_sizes_response['Response']['ImageSizes']
+        if 'TinyImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['TinyImageUrl'],
+                                   'Ti', 'Tiny')
+            config['images'].append(os.path.basename(filename))
+        if 'ThumbImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['ThumbImageUrl'],
+                                   'Th', 'Thumbnail')
+            config['images'].append(os.path.basename(filename))
+        if 'SmallImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['SmallImageUrl'],
+                                   'S', 'Small')
+            config['images'].append(os.path.basename(filename))
+        if 'MediumImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['MediumImageUrl'],
+                                   'M', 'Medium')
+            config['images'].append(os.path.basename(filename))
+        if 'LargeImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['LargeImageUrl'],
+                                   'L', 'Large')
+            config['images'].append(os.path.basename(filename))
+        if 'XLargeImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['XLargeImageUrl'],
+                                   'XL', 'XLarge')
+            config['images'].append(os.path.basename(filename))
+        if 'X2LargeImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['X2LargeImageUrl'],
+                                   'X2', 'X2Large')
+            config['images'].append(os.path.basename(filename))
+        if 'X3LargeImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['X3LargeImageUrl'],
+                                   'X3', 'X3Large')
+            config['images'].append(os.path.basename(filename))
+        if 'OriginalImageUrl' in images_sizes_data:
+            filename = fetch_image(session, base_directory, image_key, extension, images_sizes_data['OriginalImageUrl'],
+                                   'Original', 'Original')
+            config['images'].append(os.path.basename(filename))
 
-    data.raw.decode_content = True
-    thumbnail_image_filename = f"{base_directory}/{image_key}-Th.{image_data['Format'].lower()}"
-    with open(thumbnail_image_filename, 'wb') as fh:
-        shutil.copyfileobj(data.raw, fh)
-    del data
-    print(f'Downloading ....{thumbnail_image_filename}')
+        with open(image_config_filename, 'w') as fh:
+            json.dump(config, fh, indent=2)
 
-    with open(f"{base_directory}/{image_key}.json", 'w') as fh:
-        json.dump(config, fh, indent=2)
+
+def fetch_image(session: OAuth1Session,
+                base_directory: str,
+                image_key: str,
+                extension: str,
+                url: str,
+                size: str,
+                size_label: str) -> str:
+    image_filename = f"{base_directory}/{image_key}-{size}.{extension}"
+    if not os.path.isfile(image_filename):
+        data = session.get(url, stream=True)
+        if 200 != data.status_code:
+            raise Exception(f"Error fetching {size_label} image for {image_key} @ {url}")
+
+        data.raw.decode_content = True
+        with open(image_filename + '.tmp', 'wb') as fh:
+            shutil.copyfileobj(data.raw, fh)
+        del data
+        os.rename(image_filename + '.tmp', image_filename)
+
+        print(f'Downloading {size_label} => {image_filename.lstrip(OUTPUT_DIR)}')
+    return image_filename
 
 
 def main():
