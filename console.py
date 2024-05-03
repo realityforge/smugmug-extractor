@@ -246,11 +246,9 @@ def main():
     user = request(session, '/api/v2!authuser')
     # output_request('user', user)
 
-    account_name = user['Response']['User']['Name']
-
-    root_node_endpoint = user['Response']['User']['Uris']['Node']['Uri']
-
-    sync_folder_node(session, OUTPUT_DIR + account_name, root_node_endpoint)
+    sync_folder_node(session,
+                     OUTPUT_DIR + user['Response']['User']['Name'],
+                     user['Response']['User']['Uris']['Node']['Uri'])
 
 
 if __name__ == '__main__':
