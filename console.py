@@ -168,6 +168,19 @@ def sync_album_image(session: OAuth1Session, base_directory: str, image_data: di
         'original_size': image_data['OriginalSize'],
     }
 
+    thumbnail_url = image_data['ThumbnailUrl']
+
+    data = session.get(thumbnail_url, stream=True)
+    if 200 != data.status_code:
+        raise Exception(f"Not handling image thumbnail for {image_key}")
+
+    data.raw.decode_content = True
+    thumbnail_image_filename = f"{base_directory}/{image_key}-Th.{image_data['Format'].lower()}"
+    with open(thumbnail_image_filename, 'wb') as fh:
+        shutil.copyfileobj(data.raw, fh)
+    del data
+    print(f'Downloading ....{thumbnail_image_filename}')
+
     with open(f"{base_directory}/{image_key}.json", 'w') as fh:
         json.dump(config, fh, indent=2)
 
