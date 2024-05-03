@@ -30,12 +30,15 @@ def sync_directory_node(session: OAuth1Session, base_directory: str, uri: str):
     response = request(session, uri)
     output_request('node', response)
 
+    node_type = response['Response']['Node']['Type']
+    if 'Folder' != node_type and 'Album' != node_type:
+        raise Exception(f"Not handling node type of {node_type} for {response['Response']['Node']['UrlPath']}")
+
     node_id = response['Response']['Node']['NodeID']
     name = response['Response']['Node']['Name']
     description = response['Response']['Node']['Description']
     privacy = response['Response']['Node']['Privacy']
     keywords = response['Response']['Node']['Keywords']
-    node_type = response['Response']['Node']['Type']
     url_name = response['Response']['Node']['UrlName']
     url_path = response['Response']['Node']['UrlPath']
     is_root = response['Response']['Node']['IsRoot']
@@ -43,10 +46,6 @@ def sync_directory_node(session: OAuth1Session, base_directory: str, uri: str):
     highlight_image_uri = response['Response']['Node']['Uris']['HighlightImage']['Uri']
     node_comments_uri = response['Response']['Node']['Uris']['NodeComments']['Uri']
     child_nodes_uri = response['Response']['Node']['Uris']['ChildNodes']['Uri']
-
-    if node_type != 'Folder':
-        print(f"Not handling node type of {node_type} for {url_path}")
-        return
 
     local_dirname = node_id if len(url_name) == 0 else url_name
     directory_path = base_directory + '/' + local_dirname if not is_root else base_directory
