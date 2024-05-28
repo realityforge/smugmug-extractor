@@ -22,7 +22,7 @@ def get_service():
         except IOError as e:
             print('====================================================')
             print('Failed to open config.json! Did you create it?')
-            print('The expected format is demonstrated in example.json.')
+            print('The expected format is demonstrated in config.example.json.')
             print('====================================================')
             sys.exit(1)
         if type(config) is not dict \
@@ -32,7 +32,7 @@ def get_service():
                 or type(config['secret']) is not str:
             print('====================================================')
             print('Invalid config.json!')
-            print('The expected format is demonstrated in example.json.')
+            print('The expected format is demonstrated in config.example.json.')
             print('====================================================')
             sys.exit(1)
         SERVICE = OAuth1Service(
