@@ -56,6 +56,11 @@ def sync_folder_node(session: OAuth1Session, directory_path: str, uri: str) -> N
 
         os.makedirs(directory_path, exist_ok=True)
 
+        highlight_image_response = request(session, highlight_image_uri)
+        output_request('highlight_image_node', highlight_image_response)
+        highlight_image_data = highlight_image_response['Response']['Image']
+        sync_album_image(session, directory_path, highlight_image_data)
+
         config = {
             "node_id": node_id,
             "name": name,
@@ -65,7 +70,7 @@ def sync_folder_node(session: OAuth1Session, directory_path: str, uri: str) -> N
             "url_name": url_name,
             "url_path": url_path,
             "date_added": date_added,
-            "highlight_image_uri": highlight_image_uri,
+            "highlight_image_key": highlight_image_data['ImageKey'],
             "child_nodes": []
         }
 
@@ -123,6 +128,12 @@ def sync_album_node(session: OAuth1Session, directory_path: str, uri: str) -> No
 
         os.makedirs(directory_path, exist_ok=True)
 
+
+        highlight_image_response = request(session, highlight_image_uri)
+        output_request('highlight_image_node', highlight_image_response)
+        highlight_image_data = highlight_image_response['Response']['Image']
+        sync_album_image(session, directory_path, highlight_image_data)
+
         config = {
             "node_id": node_id,
             "name": name,
@@ -132,7 +143,7 @@ def sync_album_node(session: OAuth1Session, directory_path: str, uri: str) -> No
             "url_name": url_name,
             "url_path": url_path,
             "date_added": date_added,
-            "highlight_image_uri": highlight_image_uri,
+            "highlight_image_key": highlight_image_data['ImageKey'],
             "images": []
         }
 
