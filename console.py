@@ -339,7 +339,7 @@ def main():
                             access_token_secret=access_token_secret)
 
     user = request(session, '/api/v2!authuser')
-    # output_request('user', user)
+    output_request('user', user)
 
     sync_folder_node(session,
                      OUTPUT_DIR + user['Response']['User']['Name'],
