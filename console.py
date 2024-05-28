@@ -22,7 +22,8 @@ def output_request(filename: str, response_json: dict) -> None:
 
 
 def request(session: OAuth1Session, relative_uri: str) -> dict:
-    response = session.get(API_ORIGIN + relative_uri, headers={'Accept': 'application/json'})
+    params = 'count=100'
+    response = session.get(API_ORIGIN + relative_uri, params=params, headers={'Accept': 'application/json'})
     if 200 != response.status_code:
         raise Exception(f"Error fetching {API_ORIGIN + relative_uri}")
     return json.loads(response.text)
