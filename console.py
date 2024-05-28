@@ -84,7 +84,7 @@ def sync_folder_node(session: OAuth1Session, directory_path: str, uri: str) -> N
             url_name = child_node['UrlName']
             is_root = child_node['IsRoot']
             local_dirname = node_id if len(url_name) == 0 else url_name
-            child_directory_path = directory_path + '/' + local_dirname if not is_root else base_directory
+            child_directory_path = directory_path + '/' + local_dirname if not is_root else local_dirname
 
             if 'Folder' == child_node_node_type:
                 sync_folder_node(session, child_directory_path, child_node_uri)
