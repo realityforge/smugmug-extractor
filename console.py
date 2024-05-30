@@ -17,8 +17,7 @@ def output_request(filename: str, response_json: dict) -> None:
     requests_directory = current_script_directory + '/Requests'
     os.makedirs(requests_directory, exist_ok=True)
     final_filename = requests_directory + '/' + filename + '.json'
-    with open(final_filename, 'w') as fh:
-        json.dump(response_json, fh, indent=2)
+    output_json(final_filename, response_json)
 
 
 def request(session: OAuth1Session, relative_uri: str) -> dict:
@@ -97,8 +96,7 @@ def sync_folder_node(session: OAuth1Session, directory_path: str, uri: str) -> N
                 print(f"Unexpected node type '{child_node_node_type}' for child {child_node_uri} in sync_folder_node()")
                 exit(44)
 
-        with open(folder_config_path, 'w') as fh:
-            json.dump(config, fh, indent=2)
+        output_json(folder_config_path, config)
 
 
 def sync_album_node(session: OAuth1Session, directory_path: str, uri: str) -> None:
@@ -162,8 +160,7 @@ def sync_album_node(session: OAuth1Session, directory_path: str, uri: str) -> No
         for album_image in album_images:
             sync_album_image(session, directory_path, album_image)
 
-        with open(album_config_filename, 'w') as fh:
-            json.dump(config, fh, indent=2)
+        output_json(album_config_filename, config)
 
 
 def sync_album_image(session: OAuth1Session, base_directory: str, image_data: dict) -> None:
@@ -240,8 +237,13 @@ def sync_album_image(session: OAuth1Session, base_directory: str, image_data: di
                                    'Original', 'Original')
             config['images'].append(os.path.basename(filename))
 
-        with open(image_config_filename, 'w') as fh:
-            json.dump(config, fh, indent=2)
+        output_json(image_config_filename, config)
+
+
+def output_json(filename, data):
+    with open(filename, 'w') as fh:
+        json.dump(data, fh, indent=2, sort_keys=True)
+        fh.write("\n")
 
 
 def fetch_image(session: OAuth1Session,
